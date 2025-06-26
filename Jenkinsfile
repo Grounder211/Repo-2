@@ -2,25 +2,44 @@ pipeline {
     agent any
 
     environment {
-        TARGET_DIR = 'C:/Users/Public/Downloads/DATA_Files'
+        DATA_SRC_DIR = "${WORKSPACE}/zip_files"
+        DATA_TARGET_DIR = 'C:\\Users\\Public\\Downloads\\DATA_Files'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Clone Repo') {
             steps {
-                git url: 'https://github.com/<your-user>/data-repo.git', branch: 'main'
+                echo "Cloning Repo-2"
+                checkout([$class: 'GitSCM', 
+                    branches: [[name: '*/master']], 
+                    userRemoteConfigs: [[url: 'https://github.com/Grounder211/Repo-2.git']]
+                ])
             }
         }
 
-        stage('Sync Zip Files') {
+        stage('Copy New ZIP Files') {
             steps {
                 script {
-                    bat """
-                    if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
-                    xcopy /Y /S /D *.zip "%TARGET_DIR%"
-                    """
+                    def zipFiles = findFiles(glob: 'zip_files/*.zip')
+                    for (file in zipFiles) {
+                        def dest = "${env.DATA_TARGET_DIR}\\${file.name}"
+                        if (!fileExists(dest)) {
+                            bat "copy \"${file.path}\" \"${dest}\""
+                        } else {
+                            echo "File ${file.name} already exists in target, skipping."
+                        }
+                    }
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ ZIP files updated successfully.'
+        }
+        failure {
+            echo '❌ Something went wrong!'
         }
     }
 }
